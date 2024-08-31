@@ -4,7 +4,40 @@
   
     
     <entry>
-      <title>Hello World</title>
+      
+        <title>[青少年CTF]Misc--WriteUp</title>
+      
+      <link href="/posts/e70c7844/"/>
+      <url>/posts/e70c7844/</url>
+      
+        <content type="html"><![CDATA[<p>按难度从低(⭐)到高(⭐⭐⭐⭐⭐)排序</p><p>0x01 Bear(⭐)</p><p><img src="%E9%9D%92%E5%B0%91%E5%B9%B4CTF-Misc-WriteUp.assets/image-20240817234143751.png" alt="image-20240817234143751"></p><p>熊曰解密即可。解密网站：<a href="http://hi.pcmoe.net/index.html">http://hi.pcmoe.net/index.html</a></p><p>0x02 凯撒大帝的征讨之路(⭐)</p><p><img src="%E9%9D%92%E5%B0%91%E5%B9%B4CTF-Misc-WriteUp.assets/image-20240817234635964.png" alt="image-20240817234635964"></p><p>题目提示凯撒，猜测凯撒密码解密</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 青少年CTF </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> CTF </tag>
+            
+            <tag> Misc </tag>
+            
+            <tag> WriteUp </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      
+        <title>Hello World</title>
+      
       <link href="/posts/4a17b156/"/>
       <url>/posts/4a17b156/</url>
       
