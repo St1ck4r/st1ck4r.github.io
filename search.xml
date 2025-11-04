@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search> 
+  
+  
+    
+    <entry>
+      
+        <title>【漏洞复现】系列: Shiro-550漏洞的原理及复现</title>
+      
+      <link href="/posts/1121d20f/"/>
+      <url>/posts/1121d20f/</url>
+      
+        <content type="html"><![CDATA[<p><img src="/../image/image-20251103173354560.png" alt="image-20251103173354560"></p><h2 id="Shiro简介"><a href="#Shiro简介" class="headerlink" title="Shiro简介"></a>Shiro简介</h2><p>　　<strong>Apache Shiro</strong>是Apache软件基金会开发的Java安全框架，提供<strong>身份验证、授权、密码管理和会话控制</strong>功能，可应用于移动应用至企业级系统等多种场景。</p><h2 id="漏洞信息"><a href="#漏洞信息" class="headerlink" title="漏洞信息"></a>漏洞信息</h2><table><thead><tr><th align="center">CVE编号：</th><th align="center">CVE-2016-4437</th></tr></thead><tbody><tr><td align="center"><strong>影响范围：</strong></td><td align="center"><strong>Apache Shiro &lt;&#x3D;1.2.4</strong></td></tr><tr><td align="center"><strong>漏洞类型：</strong></td><td align="center"><strong>反序列化远程代码执行(RCE)</strong></td></tr><tr><td align="center"><strong>核心触发点：</strong></td><td align="center"><strong>Shiro 框架的 “RememberMe” 功能</strong></td></tr></tbody></table><h2 id="漏洞原理"><a href="#漏洞原理" class="headerlink" title="漏洞原理"></a>漏洞原理</h2><p>　　Shiro-550漏洞的本质是一个<strong>Java反序列化漏洞</strong>，但它之所以能发生，关键在于Apache Shiro框架提供的一个名为 <strong>“RememberMe”(记住我)</strong> 的便捷登录功能。</p><p>　　这个功能的本意是：用户在一次登录后，服务器会将一个加密的令牌(Token)存储在用户浏览器的Cookie中。加密的过程是：<strong>用户信息&#x3D;&#x3D;&gt;序列化&#x3D;&#x3D;&gt;AES加密&#x3D;&#x3D;&gt;base64编码&#x3D;&#x3D;&gt;添加到RememberMe Cookie字段</strong>。下次用户再访问网站时，浏览器会自动发送这个Cookie，服务器验证通过后，就能自动登录，无需再次输入用户名和密码。反之服务端解密过程就是：<strong>RememberMe Cookie字段&#x3D;&#x3D;&gt;base64解码&#x3D;&#x3D;&gt;AES解密&#x3D;&#x3D;&gt;反序列化&#x3D;&#x3D;&gt;用户信息</strong>。</p><p>　　问题在于：在<strong>Apache Shiro 1.2.4</strong>及以前的版本中，这个用于加解密的、至关重要的AES密钥，<strong>在框架代码中是硬编码的</strong>！也就是说，全世界所有使用这些版本Shiro的网站，只要他们没有主动去修改这个密钥，使用的都是同一个、公开的、默认的密钥。</p><p>　　这个默认密钥在当时是公开的，任何人都能从Shiro的开源代码里找到它。所以当攻击者知道了AES key后，就能够构造恶意的RememberMe cookie值从而触发反序列化漏洞。</p><h2 id="漏洞利用"><a href="#漏洞利用" class="headerlink" title="漏洞利用"></a>漏洞利用</h2><p>　　1.攻击者生成一个恶意的Java序列化对象。这个对象在被反序列化时，会执行系统命令(例如：弹出计算器、下载木马、连接反弹Shell等)。</p><p>　　2.使用那个公开的默认AES密钥，对这个恶意的序列化对象进行加密和Base64编码。这一步完全模仿了Shiro服务器生成合法Cookie的过程，只不过内容被替换成了恶意代码。</p><p>　　3.攻击者将伪造好的、经过加密和编码的恶意字符串，作为 <strong>rememberMe Cookie</strong>的值，发送给目标网站。</p><p>　　4.目标网站的Shiro框架接收到这个Cookie后，它会像处理正常Cookie一样，对其进行Base64解码。然后，它使用内置的(也就是那个默认的)AES密钥进行解密。解密后，Shiro框架会毫无防备地对得到的数据进行反序列化操作。就在这个反序列化的瞬间，嵌入在数据中的恶意代码被触发执行，攻击者实现了远程代码执行(RCE)，完全控制了服务器。</p><h2 id="漏洞复现"><a href="#漏洞复现" class="headerlink" title="漏洞复现"></a>漏洞复现</h2><p>使用vulhub漏洞靶场快速搭建复现环境。</p><p><img src="/../image/image-20251103163428848.png" alt="image-20251103163428848"></p><p>　　随意输入一个账号密码，并勾选Remember me选项，然后用Burp Suite进行抓包。在返回包里发现<strong>rememberMe&#x3D;deleteMe</strong>字段，说明登录页面采用了shiro进行了身份验证，可能存在Shiro-550漏洞。</p><p><img src="/../image/image-20251103172101102.png" alt="image-20251103172101102"></p><p>使用<strong>shiro_attack-2.2.jar</strong>工具进行漏洞探测</p><p><img src="/../image/image-20251103172535585.png" alt="image-20251103172521835"></p><p><strong>kPH+bIxk5D2deZiIxcaaaA&#x3D;&#x3D;<strong>就是</strong>Shiro&lt;&#x3D;1.2.4框架</strong>中默认的AES密钥。点击爆破利用链及回显进行漏洞利用。</p><p><img src="/../image/image-20251103172739480.png" alt="image-20251103172739480"></p><p>点击命令执行，输入whoami查看权限。</p><p><img src="/../image/image-20251103172857011.png" alt="image-20251103172857011"></p><p>至此，这个漏洞就利用成功了，后续可以上传内存马进行权限维持等操作，这里不再赘述。</p><h2 id="修复建议"><a href="#修复建议" class="headerlink" title="修复建议"></a>修复建议</h2><p>　　1.升级Shiro的版本。</p><p>　　2.将默认Key加密改为生成随机的Key加密。</p>]]></content>
+      
+      
+      
+        <tags>
+            
+            <tag> 漏洞复现 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      
+        <title>Hello World</title>
+      
+      <link href="/posts/4a17b156/"/>
+      <url>/posts/4a17b156/</url>
+      
+        <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/writing.html">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/server.html">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/generating.html">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>]]></content>
+      
+      
+      
+    </entry>
+    
+    
+  
+  
+</search>
